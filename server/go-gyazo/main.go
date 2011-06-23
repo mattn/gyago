@@ -21,8 +21,8 @@ func init() {
 	s.Post("/upload.cgi", func(ctx *web.Context) {
 		for k, f := range ctx.Request.Files {
 			s.Logger.Println(k)
-			if k == "imagedata" || f.Filename == "gyazo.com" {
-				ctx.Write(f.Data)
+			if k == "imagedata" {
+				ctx.Write([]byte("done"))
 				break
 			}
 		}
