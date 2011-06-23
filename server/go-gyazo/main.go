@@ -19,7 +19,7 @@ func init() {
 		ctx.Write(b)
 	})
 	s.Post("/upload.cgi", func(ctx *web.Context) {
-		for k, f := range ctx.Request.Files {
+		for k, _ := range ctx.Request.Files {
 			s.Logger.Println(k)
 			if k == "imagedata" {
 				ctx.Write([]byte("done"))
