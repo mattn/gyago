@@ -3,7 +3,7 @@ package gyazo
 import (
 	"appengine"
 	"appengine/datastore"
-	"encoding/hex"
+	"fmt"
 	"http"
 	"io/ioutil"
 	"mime"
@@ -90,12 +90,10 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sha := sha1.New()
-	sha.Write(data)
-	uuid := fmt.Sprintf("%x", string(sha.Sum())[0:8])
-
-	id := hex.EncodeToString(uuid)
+	sha.Write(image)
+	id := fmt.Sprintf("%x", string(sha.Sum())[0:8])
 	key := datastore.NewKey("Gyazo", id, 0, nil)
-	_, err = datastore.Put(c, key, gyazo)
+	_, err := datastore.Put(c, key, gyazo)
 	if err != nil {
 		http.Error(w, err.String(), 500)
 		return
