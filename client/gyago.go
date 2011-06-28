@@ -13,7 +13,11 @@ import (
 )
 
 func main() {
-	endpoint := flag.String("e", "http://gyazo.com/upload.cgi", "endpoint to upload")
+	defaultEndpoint := os.Getenv("GYAGO_SERVER")
+	if defaultEndpoint == "" {
+		defaultEndpoint = "http://gyazo.com/upload.cgi"
+	}
+	endpoint := flag.String("e", defaultEndpoint, "endpoint to upload")
 	flag.Parse()
 
 	if flag.NArg() != 1 {
@@ -26,7 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("ReadFile: %v", err)
 	}
-	host := strings.Split(url.Host, ":", 2)[0]
+	host := strings.SplitN(url.Host, ":", 2)[0]
 
 	// make content
 	content, err := ioutil.ReadFile(flag.Arg(0))
