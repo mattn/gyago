@@ -62,11 +62,6 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	var image []byte
 	for {
 		part, err := reader.NextPart()
-		if err != nil {
-			http.Error(w, err.String(), 500)
-			return
-		}
-
 		if part == nil {
 			break
 		}
