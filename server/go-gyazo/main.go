@@ -62,7 +62,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	var image []byte
 	for {
 		part, err := reader.NextPart()
-		if part == nil {
+		if part == nil || err != nil {
 			break
 		}
 		data, _ := ioutil.ReadAll(part)
@@ -70,13 +70,11 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		if v == "" {
 			continue
 		}
-		d, params := mime.ParseMediaType(v)
+		d, _ := mime.ParseMediaType(v)
 		if d != "form-data" {
 			continue
 		}
-		if params["filename"] != "" {
-			image = data
-		}
+		image = data
 
 	}
 	gyazo := &Gyazo{
