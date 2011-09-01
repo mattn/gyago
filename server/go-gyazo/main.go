@@ -65,7 +65,9 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		if part == nil || err != nil {
 			break
 		}
-		data, _ := ioutil.ReadAll(part)
+		if part.FormName() != "imagedata" {
+			continue
+		}
 		v := part.Header.Get("Content-Disposition")
 		if v == "" {
 			continue
@@ -74,8 +76,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		if d != "form-data" {
 			continue
 		}
-		image = data
-
+		image, _ = ioutil.ReadAll(part)
 	}
 	gyazo := &Gyazo{
 		Created: datastore.SecondsToTime(time.Seconds()),
