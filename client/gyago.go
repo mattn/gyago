@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"url"
 )
 
 func main() {
@@ -26,11 +27,11 @@ func main() {
 	}
 
 	// get hostname for filename
-	url, err := http.ParseURL(*endpoint)
+	url_, err := url.Parse(*endpoint)
 	if err != nil {
 		log.Fatalf("ReadFile: %v", err)
 	}
-	host := strings.SplitN(url.Host, ":", 2)[0]
+	host := strings.SplitN(url_.Host, ":", 2)[0]
 
 	// make content
 	content, err := ioutil.ReadFile(flag.Arg(0))
