@@ -3,14 +3,14 @@ package main
 import (
 	"bytes"
 	"flag"
-	"http"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
-	"url"
 )
 
 func main() {
