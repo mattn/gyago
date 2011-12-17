@@ -31,7 +31,7 @@ func Image(w http.ResponseWriter, r *http.Request) {
 	ext := path.Ext(id)
 	id = id[:len(id)-len(ext)]
 	gyazo := &Gyazo{}
-	key := datastore.NewKey("Gyazo", id, 0, nil)
+	key := datastore.NewKey(c, "Gyazo", id, 0, nil)
 	if err := datastore.Get(c, key, gyazo); err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf8")
 		http.Error(w, err.String(), 500)
@@ -48,7 +48,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ct := r.Header.Get("Content-Type")
-	if strings.Split(ct, ";", 2)[0] != "multipart/form-data" {
+	if strings.SplitN(ct, ";", 2)[0] != "multipart/form-data" {
 		http.Error(w, "invalid request", 500)
 		return
 	}
@@ -86,14 +86,14 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	sha := sha1.New()
 	sha.Write(image)
 	id := fmt.Sprintf("%x", string(sha.Sum())[0:8])
-	key := datastore.NewKey("Gyazo", id, 0, nil)
+	key := datastore.NewKey(c, "Gyazo", id, 0, nil)
 	_, err := datastore.Put(c, key, gyazo)
 	if err != nil {
 		http.Error(w, err.String(), 500)
 		return
 	}
 	host := r.Host
-	hi := strings.Split(host, ":", 2)
+	hi := strings.SplitN(host, ":", 2)
 	if len(hi) == 2 && hi[1] == "80" {
 		host = hi[0]
 	}
