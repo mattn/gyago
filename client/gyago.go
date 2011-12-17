@@ -40,7 +40,7 @@ func main() {
 	}
 
 	// %Y%m%d%H%M%S
-	id := time.LocalTime().Format("20060102030405")
+	id := time.Now().Format("20060102030405")
 
 	// create multipart
 	var b bytes.Buffer
