@@ -3,13 +3,13 @@ package gyazo
 import (
 	"appengine"
 	"appengine/datastore"
+	"crypto/sha1"
 	"fmt"
-	"http"
 	"io/ioutil"
 	"mime"
 	"mime/multipart"
+	"http"
 	"path"
-	"crypto/sha1"
 	"strings"
 	"time"
 )
