@@ -8,14 +8,14 @@ import (
 	"io/ioutil"
 	"mime"
 	"mime/multipart"
-	"http"
+	"net/http"
 	"path"
 	"strings"
 	"time"
 )
 
 type Gyazo struct {
-	Created datastore.Time
+	Created time.Time
 	Data    []byte
 }
 
@@ -34,7 +34,7 @@ func Image(w http.ResponseWriter, r *http.Request) {
 	key := datastore.NewKey(c, "Gyazo", id, 0, nil)
 	if err := datastore.Get(c, key, gyazo); err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf8")
-		http.Error(w, err.String(), 500)
+		http.Error(w, err.Error(), 500)
 	} else {
 		w.Header().Set("Content-Type", "image/png")
 		w.Write(gyazo.Data)
@@ -52,7 +52,11 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request", 500)
 		return
 	}
-	_, params := mime.ParseMediaType(ct)
+	_, params, err := mime.ParseMediaType(ct)
+	if err != nil {
+		http.Error(w, "invalid request", 500)
+		return
+	}
 	boundary, ok := params["boundary"]
 	if !ok {
 		http.Error(w, "invalid request", 500)
@@ -72,24 +76,27 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		if v == "" {
 			continue
 		}
-		d, _ := mime.ParseMediaType(v)
+		d, _, err := mime.ParseMediaType(v)
+		if err != nil {
+			continue
+		}
 		if d != "form-data" {
 			continue
 		}
 		image, _ = ioutil.ReadAll(part)
 	}
 	gyazo := &Gyazo{
-		Created: datastore.SecondsToTime(time.Seconds()),
+		Created: time.Now(),
 		Data:    image,
 	}
 
 	sha := sha1.New()
 	sha.Write(image)
-	id := fmt.Sprintf("%x", string(sha.Sum())[0:8])
+	id := fmt.Sprintf("%x", string(sha.Sum(nil))[0:8])
 	key := datastore.NewKey(c, "Gyazo", id, 0, nil)
-	_, err := datastore.Put(c, key, gyazo)
+	_, err = datastore.Put(c, key, gyazo)
 	if err != nil {
-		http.Error(w, err.String(), 500)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 	host := r.Host
