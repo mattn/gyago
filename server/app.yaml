@@ -8,3 +8,6 @@ handlers:
   static_dir: static
 - url: /.*
   script: _go_app
+- url: /remote_api
+  script: $PYTHON_LIB/google/appengine/ext/remote_api/handler.py
+  login: admin
