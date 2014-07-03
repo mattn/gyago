@@ -3,8 +3,10 @@ package gyazo
 import (
 	"appengine"
 	"appengine/datastore"
+	"compress/gzip"
 	"crypto/sha1"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"mime"
 	"mime/multipart"
@@ -17,6 +19,15 @@ import (
 type Gyazo struct {
 	Created time.Time
 	Data    []byte
+}
+
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
 }
 
 func TopPage(w http.ResponseWriter, r *http.Request) {
@@ -107,8 +118,22 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("http://" + host + "/" + id + ".png"))
 }
 
+func makeGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			fn(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		gzr := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+		fn(gzr, r)
+	}
+}
+
 func init() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", makeGzipHandler(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			if r.Method == "POST" {
 				Upload(w, r)
@@ -118,5 +143,5 @@ func init() {
 		} else {
 			Image(w, r)
 		}
-	})
+	}))
 }
