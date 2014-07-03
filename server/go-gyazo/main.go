@@ -48,6 +48,7 @@ func Image(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 	} else {
 		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("ETag", id)
 		w.Write(gyazo.Data)
 	}
 }
@@ -118,22 +119,15 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("http://" + host + "/" + id + ".png"))
 }
 
-func makeGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			fn(w, r)
-			return
-		}
-		w.Header().Set("Content-Encoding", "gzip")
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-		gzr := gzipResponseWriter{Writer: gz, ResponseWriter: w}
-		fn(gzr, r)
-	}
-}
-
 func init() {
-	http.HandleFunc("/", makeGzipHandler(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+			gz := gzip.NewWriter(w)
+			defer gz.Close()
+			w = gzipResponseWriter{Writer: gz, ResponseWriter: w}
+		}
+
 		if r.URL.Path == "/" {
 			if r.Method == "POST" {
 				Upload(w, r)
@@ -143,5 +137,5 @@ func init() {
 		} else {
 			Image(w, r)
 		}
-	}))
+	})
 }
