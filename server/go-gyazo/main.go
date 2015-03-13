@@ -1,8 +1,6 @@
 package gyazo
 
 import (
-	"appengine"
-	"appengine/datastore"
 	"compress/gzip"
 	"crypto/sha1"
 	"fmt"
@@ -14,6 +12,9 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/datastore"
 )
 
 type Gyazo struct {
