@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/datastore"
+	"appengine"
+	"appengine/datastore"
 )
 
 type Gyazo struct {
