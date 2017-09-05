@@ -117,7 +117,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	if len(hi) == 2 && hi[1] == "80" {
 		host = hi[0]
 	}
-	w.Write([]byte("http://" + host + "/" + id + ".png"))
+	w.Write([]byte("https://" + host + "/" + id + ".png"))
 }
 
 func init() {
