@@ -1,13 +1,12 @@
 application: go-gyazo
-version: 1
+module: default
 runtime: go
-api_version: go1
+api_version: go1.8
+version: main
 
 handlers:
 - url: /static
   static_dir: static
 - url: /.*
   script: _go_app
-- url: /remote_api
-  script: $PYTHON_LIB/google/appengine/ext/remote_api/handler.py
-  login: admin
+  secure: always
