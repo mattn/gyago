@@ -1,20 +1,20 @@
 package gyazo
 
 import (
-	"compress/gzip"
 	"crypto/sha1"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"mime"
-	"mime/multipart"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
 
-	"appengine"
-	"appengine/datastore"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/memcache"
 )
 
 type Gyazo struct {
@@ -31,167 +31,115 @@ func (w gzipResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
-func TopPage(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf8")
-	b, _ := ioutil.ReadFile("index.html")
-	w.Write(b)
-}
-
-func Export(w http.ResponseWriter, r *http.Request) {
+func servePage(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	q := datastore.NewQuery("Gyazo")
-
-	//var gs []*Gyazo
-	keys, err := q.KeysOnly().GetAll(c, nil)
+	w.Header().Set("Content-Type", "text/html; charset=utf8")
+	f, err := os.Open("index.html")
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		log.Infof(c, "servePage: %v", err)
+		http.Error(w, http.StatusText(http.StatusNotFound), 404)
 		return
 	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf8")
-	for _, k := range keys {
-		w.Write([]byte(k.String() + "\n"))
-	}
-	/*
-		zw := zip.NewWriter(w)
-		var fw *flate.Writer
-		zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
-			var err error
-			if fw == nil {
-				fw, err = flate.NewWriter(out, flate.BestCompression)
-			} else {
-				fw.Reset(out)
-			}
-			return fw, err
-		})
-		defer zw.Close()
-
-		today := time.Now()
-		w.Header().Set("Content-Disposition", "attachment; filename="+today.Format("20060102150405")+".zip")
-
-		for _, k := range keys {
-			var g Gyazo
-			err := datastore.Get(c, k, &g)
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-			fh := &zip.FileHeader{
-				Name:   k.String() + ".png",
-				Method: zip.Store,
-			}
-			_, offset := time.Now().Local().Zone()
-			fh.SetModTime(g.Created.Add(time.Duration(offset) * time.Second))
-			zh, err := zw.CreateHeader(fh)
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-			zh.Write(g.Data)
-		}
-	*/
+	defer f.Close()
+	io.Copy(w, f)
 }
 
-func Image(w http.ResponseWriter, r *http.Request) {
+func serveImage(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	_, id := path.Split(r.URL.Path)
 	ext := path.Ext(id)
 	id = id[:len(id)-len(ext)]
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if strings.Contains(match, id) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
 	gyazo := &Gyazo{}
-	key := datastore.NewKey(c, "Gyazo", id, 0, nil)
-	if err := datastore.Get(c, key, gyazo); err != nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf8")
-		http.Error(w, err.Error(), 500)
-		return
+	item, err := memcache.Get(c, id)
+	if err == nil {
+		gyazo.Data = item.Value
+	} else {
+		key := datastore.NewKey(c, "Gyazo", id, 0, nil)
+		if err := datastore.Get(c, key, gyazo); err != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf8")
+			if err == datastore.ErrNoSuchEntity {
+				log.Infof(c, "serveImage: %v", err)
+				http.Error(w, http.StatusText(http.StatusNotFound), 404)
+			} else {
+				log.Criticalf(c, "serveImage: %v", err)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+			return
+		}
+		memcache.Set(c, &memcache.Item{
+			Key:   id,
+			Value: gyazo.Data,
+		})
 	}
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("ETag", id)
 	w.Write(gyazo.Data)
 }
 
-func Upload(w http.ResponseWriter, r *http.Request) {
+func uploadImage(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	if r.Method != "POST" {
-		http.Error(w, "invalid request", 500)
+	if r.Method != http.MethodPost {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	ct := r.Header.Get("Content-Type")
-	if strings.SplitN(ct, ";", 2)[0] != "multipart/form-data" {
-		http.Error(w, "invalid request", 500)
-		return
-	}
-	_, params, err := mime.ParseMediaType(ct)
+	f, h, err := r.FormFile("imagedata")
 	if err != nil {
-		http.Error(w, "invalid request", 500)
+		log.Criticalf(c, "uploadImage: %v", err)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	boundary, ok := params["boundary"]
-	if !ok {
-		http.Error(w, "invalid request", 500)
+	if ct := h.Header.Get("Content-Type"); ct != "image/png" && ct != "application/octet-stream" {
+		log.Warningf(c, "content-type should be image/png: %v", ct)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	reader := multipart.NewReader(r.Body, boundary)
-	var image []byte
-	for {
-		part, err := reader.NextPart()
-		if part == nil || err != nil {
-			break
-		}
-		if part.FormName() != "imagedata" {
-			continue
-		}
-		v := part.Header.Get("Content-Disposition")
-		if v == "" {
-			continue
-		}
-		d, _, err := mime.ParseMediaType(v)
-		if err != nil {
-			continue
-		}
-		if d != "form-data" {
-			continue
-		}
-		image, _ = ioutil.ReadAll(part)
+	defer f.Close()
+
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		log.Criticalf(c, "uploadImage: %v", err)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
 	}
 	gyazo := &Gyazo{
 		Created: time.Now(),
-		Data:    image,
+		Data:    b,
 	}
 
-	sha := sha1.New()
-	sha.Write(image)
-	id := fmt.Sprintf("%x", string(sha.Sum(nil))[0:8])
+	sum := sha1.Sum(b)
+	id := fmt.Sprintf("%x", string(sum[:])[0:8])
+
 	key := datastore.NewKey(c, "Gyazo", id, 0, nil)
 	_, err = datastore.Put(c, key, gyazo)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		log.Criticalf(c, "uploadImage: %v", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	host := r.Host
-	hi := strings.SplitN(host, ":", 2)
-	if len(hi) == 2 && hi[1] == "80" {
-		host = hi[0]
-	}
-	w.Write([]byte("https://" + host + "/" + id + ".png"))
+	w.Header().Set("Content-Type", "text/plain; charset=utf8")
+	w.Write([]byte("https://" + r.Host + "/" + id + ".png"))
 }
 
 func init() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			w.Header().Set("Content-Encoding", "gzip")
-			gz := gzip.NewWriter(w)
-			defer gz.Close()
-			w = gzipResponseWriter{Writer: gz, ResponseWriter: w}
-		}
-
-		if r.URL.Path == "/" {
-			if r.Method == "POST" {
-				Upload(w, r)
-			} else {
-				TopPage(w, r)
+		switch r.Method {
+		case http.MethodPost:
+			if r.URL.Path == "/" {
+				uploadImage(w, r)
 			}
-		} else {
-			Image(w, r)
+		case http.MethodGet:
+			if r.URL.Path == "/" {
+				servePage(w, r)
+			} else {
+				serveImage(w, r)
+			}
 		}
 	})
 }
