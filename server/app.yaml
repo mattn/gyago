@@ -1,8 +1,5 @@
-application: go-gyazo
-module: default
 runtime: go
 api_version: go1.8
-version: main
 
 handlers:
 - url: /static

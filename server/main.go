@@ -37,6 +37,61 @@ func TopPage(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
+func Export(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	q := datastore.NewQuery("Gyazo")
+
+	//var gs []*Gyazo
+	keys, err := q.KeysOnly().GetAll(c, nil)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf8")
+	for _, k := range keys {
+		w.Write([]byte(k.String() + "\n"))
+	}
+	/*
+		zw := zip.NewWriter(w)
+		var fw *flate.Writer
+		zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+			var err error
+			if fw == nil {
+				fw, err = flate.NewWriter(out, flate.BestCompression)
+			} else {
+				fw.Reset(out)
+			}
+			return fw, err
+		})
+		defer zw.Close()
+
+		today := time.Now()
+		w.Header().Set("Content-Disposition", "attachment; filename="+today.Format("20060102150405")+".zip")
+
+		for _, k := range keys {
+			var g Gyazo
+			err := datastore.Get(c, k, &g)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			fh := &zip.FileHeader{
+				Name:   k.String() + ".png",
+				Method: zip.Store,
+			}
+			_, offset := time.Now().Local().Zone()
+			fh.SetModTime(g.Created.Add(time.Duration(offset) * time.Second))
+			zh, err := zw.CreateHeader(fh)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			zh.Write(g.Data)
+		}
+	*/
+}
+
 func Image(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	_, id := path.Split(r.URL.Path)
@@ -47,11 +102,11 @@ func Image(w http.ResponseWriter, r *http.Request) {
 	if err := datastore.Get(c, key, gyazo); err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf8")
 		http.Error(w, err.Error(), 500)
-	} else {
-		w.Header().Set("Content-Type", "image/png")
-		w.Header().Set("ETag", id)
-		w.Write(gyazo.Data)
+		return
 	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("ETag", id)
+	w.Write(gyazo.Data)
 }
 
 func Upload(w http.ResponseWriter, r *http.Request) {
