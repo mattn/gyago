@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	"google.golang.org/appengine"
@@ -28,7 +27,7 @@ func servePage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf8")
 	f, err := os.Open("index.html")
 	if err != nil {
-		log.Infof(c, "servePage: %v", err)
+		log.Warningf(c, "servePage: %v", err)
 		http.Error(w, http.StatusText(http.StatusNotFound), 404)
 		return
 	}
@@ -41,11 +40,9 @@ func serveImage(w http.ResponseWriter, r *http.Request) {
 	_, id := path.Split(r.URL.Path)
 	ext := path.Ext(id)
 	id = id[:len(id)-len(ext)]
-	if match := r.Header.Get("If-None-Match"); match != "" {
-		if strings.Contains(match, id) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
+	if id == r.Header.Get("If-None-Match") {
+		w.WriteHeader(http.StatusNotModified)
+		return
 	}
 
 	gyazo := &Gyazo{}
