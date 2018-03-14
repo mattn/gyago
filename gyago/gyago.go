@@ -3,13 +3,14 @@ package main
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -29,9 +30,12 @@ func main() {
 	// get hostname for filename
 	url_, err := url.Parse(*endpoint)
 	if err != nil {
-		log.Fatalf("ReadFile: %v", err)
+		log.Fatalf("url.Parse: %v", err)
 	}
-	host := strings.SplitN(url_.Host, ":", 2)[0]
+	host, _, err := net.SplitHostPort(url_.Host)
+	if err != nil {
+		log.Fatalf("net.SplitHostPort: %v", err)
+	}
 
 	// make content
 	content, err := ioutil.ReadFile(flag.Arg(0))
@@ -46,6 +50,9 @@ func main() {
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
 	err = w.WriteField("id", id)
+	if err != nil {
+		log.Fatalf("WriteField: %v", err)
+	}
 	part, err := w.CreateFormFile("imagedata", host)
 	if err != nil {
 		log.Fatalf("CreateFormFile: %v", err)
@@ -55,10 +62,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Close: %v", err)
 	}
-	body := strings.NewReader(b.String())
 
 	// then, upload
-	res, err := http.Post(*endpoint, w.FormDataContentType(), body)
+	res, err := http.Post(*endpoint, w.FormDataContentType(), &b)
 	if err != nil {
 		log.Fatalf("Post: %v", err)
 	}
@@ -68,5 +74,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("ReadAll: %v", err)
 	}
-	println(string(content))
+	fmt.Println(string(content))
 }
