@@ -17,18 +17,10 @@ import (
 	"google.golang.org/appengine/memcache"
 )
 
+// Gyazo is struct of entity of gyazo.
 type Gyazo struct {
 	Created time.Time
 	Data    []byte
-}
-
-type gzipResponseWriter struct {
-	io.Writer
-	http.ResponseWriter
-}
-
-func (w gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
 }
 
 func servePage(w http.ResponseWriter, r *http.Request) {
