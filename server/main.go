@@ -74,7 +74,7 @@ func serveImage(w http.ResponseWriter, r *http.Request) {
 
 func uploadImage(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	if r.Method != http.MethodPost {
+	if r.URL.Path != "/" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -120,9 +120,7 @@ func init() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			if r.URL.Path == "/" {
-				uploadImage(w, r)
-			}
+			uploadImage(w, r)
 		case http.MethodGet:
 			if r.URL.Path == "/" {
 				servePage(w, r)
