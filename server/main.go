@@ -3,10 +3,8 @@ package gyazo
 import (
 	"crypto/sha1"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path"
 	"time"
 
@@ -20,19 +18,6 @@ import (
 type Gyazo struct {
 	Created time.Time
 	Data    []byte
-}
-
-func servePage(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	w.Header().Set("Content-Type", "text/html; charset=utf8")
-	f, err := os.Open("index.html")
-	if err != nil {
-		log.Warningf(c, "servePage: %v", err)
-		http.Error(w, http.StatusText(http.StatusNotFound), 404)
-		return
-	}
-	defer f.Close()
-	io.Copy(w, f)
 }
 
 func serveImage(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +37,6 @@ func serveImage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		key := datastore.NewKey(c, "Gyazo", id, 0, nil)
 		if err := datastore.Get(c, key, gyazo); err != nil {
-			w.Header().Set("Content-Type", "text/html; charset=utf8")
 			if err == datastore.ErrNoSuchEntity {
 				log.Infof(c, "serveImage: %v", err)
 				http.Error(w, http.StatusText(http.StatusNotFound), 404)
@@ -84,12 +68,12 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
+	defer f.Close()
 	if ct := h.Header.Get("Content-Type"); ct != "image/png" && ct != "application/octet-stream" {
 		log.Warningf(c, "content-type should be image/png: %v", ct)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	defer f.Close()
 
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
@@ -123,7 +107,7 @@ func init() {
 			uploadImage(w, r)
 		case http.MethodGet:
 			if r.URL.Path == "/" {
-				servePage(w, r)
+				http.ServeFile(w, r, "index.html")
 			} else {
 				serveImage(w, r)
 			}
