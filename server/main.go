@@ -1,4 +1,4 @@
-package gyazo
+package main
 
 import (
 	"crypto/sha1"
@@ -70,7 +70,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 	if ct := h.Header.Get("Content-Type"); ct != "image/png" && ct != "application/octet-stream" {
-		log.Warningf(c, "content-type should be image/png: %v", ct)
+		log.Criticalf(c, "content-type should be image/png: %v", ct)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -100,7 +100,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("https://" + r.Host + "/" + id + ".png"))
 }
 
-func init() {
+func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -113,4 +113,6 @@ func init() {
 			}
 		}
 	})
+
+	appengine.Main()
 }
