@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -20,6 +21,7 @@ func main() {
 		defaultEndpoint = "http://gyazo.com/upload.cgi"
 	}
 	endpoint := flag.String("e", defaultEndpoint, "endpoint to upload")
+	authenticate := flag.String("a", os.Getenv("GYAGO_BASICAUTH"), "basic authentication")
 	flag.Parse()
 
 	if flag.NArg() != 1 {
@@ -34,7 +36,7 @@ func main() {
 	}
 	host, _, err := net.SplitHostPort(url_.Host)
 	if err != nil {
-		log.Fatalf("net.SplitHostPort: %v", err)
+		host = url_.Host
 	}
 
 	// make content
@@ -63,8 +65,19 @@ func main() {
 		log.Fatalf("Close: %v", err)
 	}
 
+	req, err := http.NewRequest(http.MethodPost, *endpoint, &b)
+	if err != nil {
+		log.Fatalf("NewRequest: %v", err)
+	}
+	if *authenticate != "" {
+		if token := strings.SplitN(*authenticate, ":", 2); len(token) == 2 {
+			req.SetBasicAuth(token[0], token[1])
+		}
+	}
+
+	req.Header.Set("Content-Type", w.FormDataContentType())
 	// then, upload
-	res, err := http.Post(*endpoint, w.FormDataContentType(), &b)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatalf("Post: %v", err)
 	}
